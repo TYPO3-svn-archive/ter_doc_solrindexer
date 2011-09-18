@@ -70,6 +70,7 @@ class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Index
 			$itemRecord['version']
 		) . 'html_online/';
 
+			// TODO clean up old documentation
 
 		return parent::index($item);
 	}
@@ -84,8 +85,6 @@ class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Index
 	protected function indexItem(tx_solr_indexqueue_Item $item, $language = 0) {
 		$indexed   = FALSE;
 		$documents = array();
-
-			// TODO clean up old documentation
 
 		$renderedFiles = t3lib_div::getFilesInDir($this->documentDirectory, 'html');
 		foreach ($renderedFiles as $fileName) {
@@ -104,27 +103,8 @@ class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Index
 
 			$document = $this->itemToDocument($item, $language);
 			$document->setField('access', 'c:0');
-			$document->setField('id', $document->id . '/' . $itemRecord['chapter'] . '/' . $itemRecord['section']);
-
-				// build URL
-			$contentObject = t3lib_div::makeInstance('tslib_cObj');
-			$urlParameters = array(
-				'extensionkey'            => $itemRecord['extensionkey'],
-				'version'                 => 'current',
-				'format'                  => 'ter_doc_html_onlinehtml',
-				'html_readonline_chapter' => $itemRecord['chapter'],
-				'html_readonline_section' => $itemRecord['section']
-			);
-			$url = $contentObject->typoLink_URL(array(
-				'parameter' => tx_terdoc_api::getInstance()->getViewPageIdForExtensionVersion(
-					$itemRecord['extensionkey'],
-					$itemRecord['version']
-				),
-				'additionalParams' => t3lib_div::implodeArrayForUrl('tx_terdoc_pi1', $urlParameters),
-				'useCacheHash' => TRUE
-			));
-
-			$document->setField('url', $url);
+			$document->setField('id',     $document->id . '/' . $itemRecord['chapter'] . '/' . $itemRecord['section']);
+			$document->setField('url',    $this->buildUrl($itemRecord));
 
 				// document field processing
 			$this->processDocument($item, $document);
@@ -199,6 +179,30 @@ class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Index
 		}
 
 		return $section;
+	}
+
+	protected function buildUrl(array $itemRecord) {
+		$url = '';
+
+		$contentObject = t3lib_div::makeInstance('tslib_cObj');
+		$urlParameters = array(
+			'extensionkey'            => $itemRecord['extensionkey'],
+			'version'                 => 'current',
+			'format'                  => 'ter_doc_html_onlinehtml',
+			'html_readonline_chapter' => $itemRecord['chapter'],
+			'html_readonline_section' => $itemRecord['section']
+		);
+
+		$url = $contentObject->typoLink_URL(array(
+			'parameter'        => tx_terdoc_api::getInstance()->getViewPageIdForExtensionVersion(
+				$itemRecord['extensionkey'],
+				$itemRecord['version']
+			),
+			'additionalParams' => t3lib_div::implodeArrayForUrl('tx_terdoc_pi1', $urlParameters),
+			'useCacheHash'     => TRUE
+		));
+
+		return $url;
 	}
 
 
