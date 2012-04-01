@@ -26,6 +26,11 @@
 /**
  * Initializes extension documentation items in Index Queue.
  *
+ * This is used only when initializing the Index Queue through the EXT:solr
+ * backend module. The initializer gets all the latest versions of each
+ * extension's manual and add the accordant item to the Index Queue. Later the
+ * indexer then takes care of actually indexing the documentation.
+ *
  * @author Ingo Renner <ingo@typo3.org>
  * @package TYPO3
  * @subpackage ter_doc_solrindexer
