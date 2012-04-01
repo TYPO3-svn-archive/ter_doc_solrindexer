@@ -52,6 +52,7 @@ class Tx_TerDocSolrindexer_DocumentationUpdateMonitor extends tx_terdoc_document
 	 */
 	protected $documentationRenderer;
 
+
 	/**
 	 * Indexes the documentation into Apache Solr using the files rendered by
 	 * EXT:ter_doc_html before.
@@ -60,13 +61,16 @@ class Tx_TerDocSolrindexer_DocumentationUpdateMonitor extends tx_terdoc_document
 	 * @return void
 	 */
 	public function renderCache($documentDir) {
-		$this->documentDirectory = $documentDir;
+		$this->documentDirectory     = $documentDir;
 		$this->documentationRenderer = tx_terdoc_renderdocuments::getInstance();
 
 		$extensionManualMetaData = $this->getExtensionManualMetaData();
 
+		$this->removeOldDocumentationIndexQueueItems($extensionManualMetaData);
+
+		$latestManualVersion = array_pop($extensionManualMetaData);
 		$indexQueue = t3lib_div::makeInstance('tx_solr_indexqueue_Queue');
-		$indexQueue->updateItem('tx_terdoc_manuals', $extensionManualMetaData['uid']);
+		$indexQueue->updateItem('tx_terdoc_manuals', $latestManualVersion['uid']);
 	}
 
 	/**
@@ -83,7 +87,7 @@ class Tx_TerDocSolrindexer_DocumentationUpdateMonitor extends tx_terdoc_document
 	}
 
 	/**
-	 * Gets the full extension manual meta data record as created by the
+	 * Gets the full extension manual meta data records as created by the
 	 * documentation renderer.
 	 *
 	 * @return array Manual meta data record
@@ -93,15 +97,36 @@ class Tx_TerDocSolrindexer_DocumentationUpdateMonitor extends tx_terdoc_document
 		$extensionKeyAndVersion = array_pop($explodedPath);
 		list($extensionKey, $extensionVersion) = explode('-', $extensionKeyAndVersion);
 
-		$extensionManualMetaData = $GLOBALS['TYPO3_DB']->exec_SELECTgetSingleRow(
+		$extensionManualMetaData = $GLOBALS['TYPO3_DB']->exec_SELECTgetRows(
 			'*',
 			'tx_terdoc_manuals',
 			'extensionkey = "' . $extensionKey . '"'
-				. ' AND version = "' . $extensionVersion . '"'
-				. ' AND pid = "' . intval($this->documentationRenderer->getStoragePid()) . '"'
+				. ' AND pid = "' . intval($this->documentationRenderer->getStoragePid()) . '"',
+			'',
+			'uid ASC'
 		);
 
 		return $extensionManualMetaData;
+	}
+
+	/**
+	 * Removes all possible Index Queue items for the current extension's
+	 * manual.
+	 *
+	 * @param array $extensionManuals
+	 */
+	protected function removeOldDocumentationIndexQueueItems(array $extensionManuals) {
+
+		$extensionManualIds = array();
+		foreach ($extensionManuals as $extensionManual) {
+			$extensionManualIds[] = $extensionManual['uid'];
+		}
+
+		$GLOBALS['TYPO3_DB']->exec_DELETEquery(
+			'tx_solr_indexqueue_item',
+			'item_type = "tx_terdoc_manuals"'
+				. ' AND item_uid IN(' .implode(',', $extensionManualIds) . ')'
+		);
 	}
 
 }
