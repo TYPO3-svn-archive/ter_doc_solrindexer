@@ -24,8 +24,13 @@
 
 
 /**
- * A class that hooks into the documentation rendering process disguised as an
- * additional output format.
+ * "Record Monitor" for documentation updates.
+ *
+ * The class hooks into the documentation rendering process disguised as an
+ * additional output format. Thus it gets executed whenever documentation is
+ * rendered. It then takes the information about the manual and updates the
+ * Index Queue. Later the indexer will take care of indexing the new
+ * documentation.
  *
  * @author Ingo Renner <ingo@typo3.org>
  * @package TYPO3
