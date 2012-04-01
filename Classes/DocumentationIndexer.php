@@ -2,7 +2,7 @@
 /***************************************************************
 *  Copyright notice
 *
-*  (c) 2011 Ingo Renner <ingo@typo3.org>
+*  (c) 2011-2012 Ingo Renner <ingo@typo3.org>
 *  All rights reserved
 *
 *  This script is part of the TYPO3 project. The TYPO3 project is
@@ -26,30 +26,30 @@
 /**
  * Indexer for typo3.org TER manuals
  *
- * @author	Ingo Renner <ingo@typo3.org>
- * @package	TYPO3
- * @subpackage	ter_doc_solrindexer
+ * @author Ingo Renner <ingo@typo3.org>
+ * @package TYPO3
+ * @subpackage ter_doc_solrindexer
  */
 class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Indexer {
 
 	/**
 	 * Cache directory for the rendered documentation.
 	 *
-	 * @var	string
+	 * @var string
 	 */
 	protected $documentDirectory;
 
 	/**
 	 * Documentation Renderer
 	 *
-	 * @var	tx_terdoc_renderdocuments
+	 * @var tx_terdoc_renderdocuments
 	 */
 	protected $documentationRenderer;
 
 	/**
 	 * Constructor
 	 *
-	 * @param	array	Array of indexer options
+	 * @param array Array of indexer options
 	 */
 	public function __construct(array $options = array()) {
 		parent::__construct($options);
@@ -60,8 +60,8 @@ class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Index
 	/**
 	 * Indexes an item from the indexing queue.
 	 *
-	 * @param	tx_solr_indexqueue_Item	An index queue item
-	 * @return	Apache_Solr_Response	The Apache Solr response
+	 * @param tx_solr_indexqueue_Item An index queue item
+	 * @return Apache_Solr_Response The Apache Solr response
 	 */
 	public function index(tx_solr_indexqueue_Item $item) {
 		$itemRecord = $item->getRecord();
@@ -70,21 +70,23 @@ class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Index
 			$itemRecord['version']
 		) . 'html_online/';
 
-			// TODO clean up old documentation
-
 		return parent::index($item);
 	}
 
 	/**
 	 * Creates a single Solr Document for an item in a specific language.
 	 *
-	 * @param	tx_solr_indexqueue_Item	An index queue item to index.
-	 * @param	integer	The language to use.
-	 * @return	boolean	TRUE if item was indexed successfully, FALSE on failure
+	 * @param tx_solr_indexqueue_Item An index queue item to index.
+	 * @param integer The language to use.
+	 * @return boolean TRUE if item was indexed successfully, FALSE on failure
 	 */
 	protected function indexItem(tx_solr_indexqueue_Item $item, $language = 0) {
 		$indexed   = FALSE;
 		$documents = array();
+
+		$this->removeOldDocumentationDocuments($item->getRecord());
+
+$debugDocs = array();
 
 		$renderedFiles = t3lib_div::getFilesInDir($this->documentDirectory, 'html');
 		foreach ($renderedFiles as $fileName) {
@@ -103,14 +105,24 @@ class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Index
 
 			$document = $this->itemToDocument($item, $language);
 			$document->setField('access', 'c:0');
-			$document->setField('id',     $document->id . '/' . $itemRecord['chapter'] . '/' . $itemRecord['section']);
+			$document->setField('id',     $document->id . '/c' . $itemRecord['chapter'] . '/s' . $itemRecord['section']);
 			$document->setField('url',    $this->buildUrl($itemRecord));
 
-				// document field processing
-			$this->processDocument($item, $document);
+$debugDocs[] = (array) $document;
 
 			$documents[] = $document;
+
+				// document field processing
+			$this->processDocuments($item, $documents);
 		}
+
+$debugItemRecord = $item->getRecord();
+t3lib_div::devLog('Indexing Documentation for ' . $debugItemRecord['extensionkey'], 'ter_doc_solrindexer', 0, array(
+	'$item' => (array) $item,
+	'$itemRecord' => $itemRecord,
+	'$renderedFiles' => $renderedFiles,
+	'$documents' =>  $debugDocs
+));
 
 		$documents = $this->preAddModifyDocuments(
 			$item,
@@ -126,6 +138,24 @@ class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Index
 		$this->log($item, $documents, $response);
 
 		return $indexed;
+	}
+
+
+		// clean up
+
+	/**
+	 * Deletes all documents from the index which are of type manual and belong
+	 * to the current extension.
+	 *
+	 * @param array $itemRecord
+	 */
+	protected function removeOldDocumentationDocuments(array $itemRecord) {
+		$deleteQuery = array(
+			'type:tx_terdoc_manuals',
+			'extensionKey_stringS:' . $itemRecord['extensionkey']
+		);
+
+		$this->solr->deleteByQuery(implode(' AND ', $deleteQuery));
 	}
 
 
