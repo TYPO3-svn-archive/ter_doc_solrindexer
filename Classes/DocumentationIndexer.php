@@ -86,7 +86,7 @@ class Tx_TerDocSolrindexer_DocumentationIndexer extends tx_solr_indexqueue_Index
 
 		$this->removeOldDocumentationDocuments($item->getRecord());
 
-$debugDocs = array();
+#$debugDocs = array();
 
 		$renderedFiles = t3lib_div::getFilesInDir($this->documentDirectory, 'html');
 		foreach ($renderedFiles as $fileName) {
@@ -108,7 +108,7 @@ $debugDocs = array();
 			$document->setField('id',     $document->id . '/c' . $itemRecord['chapter'] . '/s' . $itemRecord['section']);
 			$document->setField('url',    $this->buildUrl($itemRecord));
 
-$debugDocs[] = (array) $document;
+#$debugDocs[] = (array) $document;
 
 			$documents[] = $document;
 
@@ -116,13 +116,13 @@ $debugDocs[] = (array) $document;
 			$this->processDocuments($item, $documents);
 		}
 
-$debugItemRecord = $item->getRecord();
-t3lib_div::devLog('Indexing Documentation for ' . $debugItemRecord['extensionkey'], 'ter_doc_solrindexer', 0, array(
-	'$item' => (array) $item,
-	'$itemRecord' => $itemRecord,
-	'$renderedFiles' => $renderedFiles,
-	'$documents' =>  $debugDocs
-));
+#$debugItemRecord = $item->getRecord();
+#t3lib_div::devLog('Indexing Documentation for ' . $debugItemRecord['extensionkey'], 'ter_doc_solrindexer', 0, array(
+#	'$item' => (array) $item,
+#	'$itemRecord' => $itemRecord,
+#	'$renderedFiles' => $renderedFiles,
+#	'$documents' =>  $debugDocs
+#));
 
 		$documents = $this->preAddModifyDocuments(
 			$item,
@@ -133,6 +133,7 @@ t3lib_div::devLog('Indexing Documentation for ' . $debugItemRecord['extensionkey
 		$response = $this->solr->addDocuments($documents);
 		if ($response->getHttpStatus() == 200) {
 			$indexed = TRUE;
+			$this->updateExtension($item);
 		}
 
 		$this->log($item, $documents, $response);
@@ -235,6 +236,23 @@ t3lib_div::devLog('Indexing Documentation for ' . $debugItemRecord['extensionkey
 		return $url;
 	}
 
+	protected function updateExtension(tx_solr_indexqueue_Item $item) {
+		if (!t3lib_extMgm::isLoaded('ter_fe2')) {
+			return;
+		}
+
+		$itemRecord   = $item->getRecord();
+		$extensionKey = $itemRecord['extensionkey'];
+
+		$extension = $GLOBALS['TYPO3_DB']->exec_SELECTgetSingleRow(
+			'uid, pid, ext_key',
+			'tx_terfe2_domain_model_extension',
+			'ext_key = \'' . $$extensionKey . '\''
+		);
+
+		$indexQueue = t3lib_div::makeInstance('tx_solr_indexqueue_Queue');
+		$indexQueue->updateItem('tx_terfe2_domain_model_extension', $extension['uid']);
+	}
 
 }
 
